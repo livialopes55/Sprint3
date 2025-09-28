@@ -4,12 +4,28 @@ using Microsoft.OpenApi.Models;
 using MottuApi.Data;
 using MottuApi.Models;
 using System.Text.Json.Serialization;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// EF Core + SQLite
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var conn = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrWhiteSpace(conn) &&
+    conn.Contains("database.windows.net", StringComparison.OrdinalIgnoreCase))
+{
+    // Azure SQL
+    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(conn));
+}
+else
+{
+   
+    var sqliteConn = string.IsNullOrWhiteSpace(conn)
+        ? "Data Source=/home/site/wwwroot/app.db"
+        : conn;
+
+    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlite(sqliteConn));
+}
 
 // Controllers + JSON
 builder.Services.AddControllers()
@@ -46,31 +62,37 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Cria/seed do banco local (SQLite)
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
     if (!db.Filiais.Any())
     {
         var filial = new Filial { Nome = "Filial Centro", Endereco = "Av. Central, 1000" };
         var patio = new Patio { Descricao = "Pátio A", Dimensao = "50x30", Filial = filial };
         db.Filiais.Add(filial);
         db.Patios.Add(patio);
-        db.Motos.Add(new Moto { Placa = "ABC1D23", Modelo = "CG 160", Ano = 2022, Status = "Em uso", Patio = patio });
+        db.Motos.Add(new Moto
+        {
+            Placa = "ABC1D23",
+            Modelo = "CG 160",
+            Ano = 2022,
+            Status = "Em uso",
+            Patio = patio
+        });
         db.SaveChanges();
     }
 }
 
-// Swagger sempre habilitado aqui (ok para dev)
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
-
 app.MapControllers();
 
-// Redireciona a raiz para o Swagger
+
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
