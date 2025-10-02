@@ -1,22 +1,30 @@
+// Utils/PaginationAndHateoas.cs
+using Microsoft.EntityFrameworkCore;
+
 namespace MottuApi.Utils
 {
-    public record PagedResult<T>(IEnumerable<T> Items, int TotalCount, int PageNumber, int PageSize);
-
-    public static class Pagination
+    public static class PaginationAndHateoas
     {
-        public static PagedResult<T> ToPagedResult<T>(this IQueryable<T> query, int pageNumber, int pageSize)
+        public static async Task<PagedResult<T>> ToPagedAsync<T>(
+            this IQueryable<T> query,
+            int pageNumber,
+            int pageSize,
+            Func<int, int, IEnumerable<Link>> buildLinks)
         {
-            var total = query.Count();
-            var items = query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
-            return new PagedResult<T>(items, total, pageNumber, pageSize);
+            var total = await query.CountAsync();
+            var data = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<T>
+            {
+                Data = data,
+                Total = total,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Links = buildLinks(pageNumber, pageSize)
+            };
         }
-    }
-
-    public record Link(string Rel, string Href, string Method);
-
-    public static class Hateoas
-    {
-        public static object WithLinks<T>(this T resource, IEnumerable<Link> links) where T : class
-            => new { data = resource, links = links };
     }
 }

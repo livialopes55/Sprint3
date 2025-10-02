@@ -1,174 +1,121 @@
-# Mottu API — Sprint 3 (.NET)
+#  Mottu API - Challenge FIAP 2025
 
-API RESTful em .NET 8 para gestão de **Filiais**, **Pátios** e **Motos**, com **CRUD completo**, **paginação**, **HATEOAS** e **status codes adequados**, documentada com **Swagger**.
+API RESTful desenvolvida em **.NET 8 (Web API)** para o Challenge da disciplina **Advanced Business Development with .NET**.  
+Implementa CRUD completo, paginação, HATEOAS, boas práticas REST e documentação via Swagger/OpenAPI.
 
-## Integrantes
-- **Lívia de Oliveira Lopes** — RM 556281
+---
 
-## Objetivo
-Prover endpoints REST para o domínio Mottu: **Filiais** possuem **Pátios** e **Pátios** possuem **Motos**. A API expõe operações de cadastro, consulta, atualização e exclusão, com paginação nas listagens e hipermídia (HATEOAS) nos retornos.
+##  Tecnologias Utilizadas
+- ASP.NET Core 8 (Web API)
+- Entity Framework Core 8
+- SQLite (banco local para persistência)
+- Swagger / OpenAPI (documentação)
+- API Versioning
 
-## Arquitetura & Tecnologias
-- **.NET 8 — ASP.NET Core Web API**
-- **Entity Framework Core + SQLite** (banco local criado automaticamente)
-- **Swagger / OpenAPI**
-- **API Versioning** (rota `/api/v1/...`)
-- Camadas simples: **Controllers → DbContext/Models**
-- Boas práticas REST:
-  - Paginação (`pageNumber`, `pageSize`)
-  - HATEOAS (links de `self`, `create`, `update`, `delete`)
-  - Status codes: `200`, `201`, `204`, `400`, `404`
+---
 
-## Como executar
-Pré-requisito: **.NET 8 SDK**
+##  Estrutura de Entidades
+A API possui 3 entidades principais, justificando o domínio da aplicação:
 
-```bash
-dotnet build
-dotnet run --project MottuApi
-```
+- **Filial** → representa as unidades da Mottu.  
+- **Pátio** → áreas físicas onde as motos são armazenadas.  
+- **Moto** → veículos que podem estar vinculados a um pátio.
 
-A aplicação mostrará no console as URLs. Exemplos comuns:
-- Swagger: `http://localhost:5000/swagger/index.html'
-- Raiz redireciona para o Swagger (`/ → /swagger`)
+Relacionamentos implementados:
+- Uma **Filial** possui vários **Pátios**.
+- Um **Pátio** possui várias **Motos**.
 
-> O banco **SQLite** (`mottu.db`) é criado automaticamente na primeira execução e uma carga mínima (seed) é aplicada.
+---
 
-## Testes rápidos (Swagger)
-1. Abrir o **Swagger** (`/swagger`).
-2. Executar os **GETs paginados** para Filiais/Pátios/Motos (`?pageNumber=1&pageSize=2`).
-3. Executar **POST → GET por id → PUT → GET por id → DELETE** para cada entidade.
-4. Conferir:
-   - **HATEOAS**: em `GET por id` o corpo retorna `{ data, links }`.
-   - **Status codes**: `201` no POST, `204` no PUT/DELETE, `404` para ids inexistentes, `400` para payload inválido.
-
-## Endpoints
+## Endpoints Implementados
 
 ### Filiais
-- `GET    /api/v1/filiais?pageNumber=1&pageSize=10` — lista paginada
-- `GET    /api/v1/filiais/{id}` — detalhe (com HATEOAS)
-- `POST   /api/v1/filiais` — cria (201 + Location)
-- `PUT    /api/v1/filiais/{id}` — atualiza (204)
-- `DELETE /api/v1/filiais/{id}` — exclui (204)
+- `GET /api/v1/filiais?pageNumber=1&pageSize=10` → Lista paginada de filiais (com HATEOAS).  
+- `GET /api/v1/filiais/{id}` → Detalhe de uma filial.  
+- `POST /api/v1/filiais` → Criação de filial.  
+- `PUT /api/v1/filiais/{id}` → Atualização de filial.  
+- `DELETE /api/v1/filiais/{id}` → Exclusão de filial.  
 
 ### Pátios
-- `GET    /api/v1/patios?pageNumber=1&pageSize=10`
-- `GET    /api/v1/patios/{id}`
-- `POST   /api/v1/patios`
-- `PUT    /api/v1/patios/{id}`
-- `DELETE /api/v1/patios/{id}`
+- `GET /api/v1/patios`  
+- `GET /api/v1/patios/{id}`  
+- `POST /api/v1/patios`  
+- `PUT /api/v1/patios/{id}`  
+- `DELETE /api/v1/patios/{id}`  
 
 ### Motos
-- `GET    /api/v1/motos?pageNumber=1&pageSize=10`
-- `GET    /api/v1/motos/{id}`
-- `POST   /api/v1/motos`
-- `PUT    /api/v1/motos/{id}`
-- `DELETE /api/v1/motos/{id}`
+- `GET /api/v1/motos`  
+- `GET /api/v1/motos/{id}`  
+- `POST /api/v1/motos`  
+- `PUT /api/v1/motos/{id}`  
+- `DELETE /api/v1/motos/{id}`  
 
-## Exemplos de payloads
-
-### Filial — POST
-```json
-{
-  "nome": "Filial Zona Sul",
-  "endereco": "Av. das Flores, 123"
-}
-```
-
-### Filial — PUT
-```json
-{
-  "id": 0,
-  "nome": "Filial Zona Sul - Atualizada",
-  "endereco": "Rua Nova, 55"
-}
-```
-
-### Pátio — POST  *(use um `filialId` existente, ex.: 1)*
-```json
-{
-  "descricao": "Pátio B",
-  "dimensao": "40x20",
-  "filialId": 1
-}
-```
-
-### Pátio — PUT
-```json
-{
-  "id": 0,
-  "descricao": "Pátio B - Atualizado",
-  "dimensao": "45x25",
-  "filialId": 1
-}
-```
-
-### Moto — POST  *(use um `patioId` existente, ex.: 1)*
-```json
-{
-  "placa": "XYZ9A88",
-  "modelo": "Fazer 250",
-  "ano": 2023,
-  "status": "Parada",
-  "patioId": 1
-}
-```
-
-### Moto — PUT
-```json
-{
-  "id": 0,
-  "placa": "XYZ9A88",
-  "modelo": "Fazer 250 ABS",
-  "ano": 2024,
-  "status": "Em manutenção",
-  "patioId": 1
-}
-```
-
-> **Observação**: a coluna **Placa** é única. Para criar múltiplas motos, altere a placa (ex.: `ABC1D23`, `DEF2G45`).
+---
 
 ## Paginação & HATEOAS
+Nos endpoints de listagem, é possível utilizar parâmetros:
+- `?pageNumber=1&pageSize=10`
 
-### Paginação (exemplo)
-`GET /api/v1/filiais?pageNumber=1&pageSize=2` retorna:
+Exemplo de resposta com HATEOAS:
+
 ```json
 {
-  "data": [ /* até 2 itens */ ],
-  "total": 12,
+  "data": [
+    {
+      "id": 1,
+      "nome": "Filial Barueri",
+      "endereco": "Rua X, São Paulo"
+    }
+  ],
+  "total": 6,
   "pageNumber": 1,
-  "pageSize": 2,
+  "pageSize": 5,
   "links": [
-    { "rel": "self", "href": ".../filiais?pageNumber=1&pageSize=2", "method": "GET" },
-    { "rel": "create", "href": ".../filiais", "method": "POST" }
+    {
+      "rel": "self",
+      "href": "http://localhost:5000/api/v1/filiais?pageNumber=1&pageSize=5",
+      "method": "GET"
+    },
+    {
+      "rel": "create",
+      "href": "http://localhost:5000/api/v1/filiais",
+      "method": "POST"
+    }
   ]
 }
 ```
 
-### HATEOAS (exemplo de detalhe)
-`GET /api/v1/filiais/1`:
-```json
-{
-  "data": { "id": 1, "nome": "Filial Centro", "endereco": "Av. Central, 1000" },
-  "links": [
-    { "rel": "self",   "href": ".../filiais/1", "method": "GET" },
-    { "rel": "update", "href": ".../filiais/1", "method": "PUT" },
-    { "rel": "delete", "href": ".../filiais/1", "method": "DELETE" }
-  ]
-}
-```
+---
 
-## Status Codes adotados
-- `200 OK` — consultas com sucesso
-- `201 Created` — criação (com header **Location**)
-- `204 No Content` — atualização/exclusão
-- `400 Bad Request` — validação falhou (ex.: campos obrigatórios vazios)
-- `404 Not Found` — recurso inexistente
+##  Swagger
+A documentação da API é gerada automaticamente e acessível em:
 
-## Testes (opcional)
-- **xUnit** básico incluído (`MottuApi.Tests` → `dotnet test`).
-- **Postman Collection** disponível (CRUD completo + paginação + checagens).
+ [http://localhost:5000](http://localhost:5000)  
 
-## Notas
-- O **Swagger** já está habilitado em `Development`.
-- O **banco SQLite** fica no arquivo `mottu.db` na raiz do projeto.
-- Semeadura automática cria 1 Filial, 1 Pátio e 1 Moto para facilitar os testes.
+---
+
+## Como Executar
+1. Clone este repositório:
+   ```bash
+   git clone https://github.com/livialopes55/Sprint3.git
+   ```
+2. Entre na pasta do projeto:
+   ```bash
+   cd MottuApi
+   ```
+3. Restaure os pacotes:
+   ```bash
+   dotnet restore
+   ```
+4. Execute a aplicação:
+   ```bash
+   dotnet run
+   ```
+
+---
+
+## Integrantes
+- **Lívia Lopes** - RM: 556281  
+- **Henrique Pecora** - RM: 556612  
+- **Santhiago de Gobbi** - RM: 98420  
+

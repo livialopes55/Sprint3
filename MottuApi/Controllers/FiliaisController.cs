@@ -4,90 +4,103 @@ using MottuApi.Data;
 using MottuApi.Models;
 using MottuApi.Utils;
 
-namespace MottuApi.Controllers
+namespace MottuApi.Controllers;
+
+[ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/filiais")]
+public class FiliaisController : ControllerBase
 {
-    [ApiController]
-    [ApiVersion("1.0")]
-    [Route("api/v{version:apiVersion}/filiais")]
-    public class FiliaisController : ControllerBase
+    private readonly AppDbContext _db;
+    public FiliaisController(AppDbContext db) => _db = db;
+
+    // GET /api/v1/filiais?pageNumber=1&pageSize=10
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<Filial>), 200)]
+    public async Task<IActionResult> Get([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        private readonly AppDbContext _db;
-        public FiliaisController(AppDbContext db) => _db = db;
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize is < 1 or > 100 ? 10 : pageSize;
 
-        /// <summary>Lista filiais com paginação</summary>
-        [HttpGet]
-        [ProducesResponseType(typeof(object), 200)]
-        public IActionResult GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        var query = _db.Filiais.AsNoTracking().OrderBy(f => f.Id);
+
+        var total = await query.CountAsync();
+        var data = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        var links = new List<Link>
         {
-            var query = _db.Filiais.AsNoTracking().OrderBy(f => f.Id);
-            var paged = query.ToPagedResult(pageNumber, pageSize);
+            new("self",   Url.Action(nameof(Get),    values: new { version="1", pageNumber, pageSize })!, "GET"),
+            new("create", Url.Action(nameof(Create), values: new { version="1" })!,                       "POST")
+        };
 
-            var links = new List<Link>
-            {
-                new("self", Url.Action(nameof(GetAll), values: new { pageNumber, pageSize, version = HttpContext.GetRequestedApiVersion()?.ToString()} ) ?? "", "GET"),
-                new("create", Url.Action(nameof(Create), values: new { version = HttpContext.GetRequestedApiVersion()?.ToString() }) ?? "", "POST")
-            };
-
-            return Ok(new { data = paged.Items, total = paged.TotalCount, pageNumber, pageSize, links });
-        }
-
-        /// <summary>Busca filial por id</summary>
-        [HttpGet("{id:int}")]
-        [ProducesResponseType(typeof(object), 200)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> GetById(int id)
+        var result = new PagedResult<Filial>
         {
-            var entity = await _db.Filiais.FindAsync(id);
-            if (entity is null) return NotFound();
+            Data = data,
+            Total = total,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            Links = links
+        };
 
-            var links = new List<Link>
-            {
-                new("self", Url.Action(nameof(GetById), values: new { id, version = HttpContext.GetRequestedApiVersion()?.ToString() }) ?? "", "GET"),
-                new("update", Url.Action(nameof(Update), values: new { id, version = HttpContext.GetRequestedApiVersion()?.ToString()}) ?? "", "PUT"),
-                new("delete", Url.Action(nameof(Delete), values: new { id, version = HttpContext.GetRequestedApiVersion()?.ToString()}) ?? "", "DELETE")
-            };
+        Response.Headers["X-Pagination"] =
+            System.Text.Json.JsonSerializer.Serialize(new { total, pageNumber, pageSize });
 
-            return Ok(entity.WithLinks(links));
-        }
+        return Ok(result);
+    }
 
-        /// <summary>Cria nova filial</summary>
-        [HttpPost]
-        [ProducesResponseType(typeof(Filial), 201)]
-        [ProducesResponseType(400)]
-        public async Task<IActionResult> Create([FromBody] Filial input)
-        {
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            _db.Filiais.Add(input);
-            await _db.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = input.Id, version = HttpContext.GetRequestedApiVersion()?.ToString() }, input);
-        }
+    // GET /api/v1/filiais/{id}
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(Filial), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var filial = await _db.Filiais.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id);
+        if (filial is null) return NotFound();
 
-        /// <summary>Atualiza filial</summary>
-        [HttpPut("{id:int}")]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> Update(int id, [FromBody] Filial input)
-        {
-            var entity = await _db.Filiais.FindAsync(id);
-            if (entity is null) return NotFound();
+        return Ok(filial);
+    }
 
-            entity.Nome = input.Nome;
-            entity.Endereco = input.Endereco;
-            await _db.SaveChangesAsync();
-            return NoContent();
-        }
+    // POST /api/v1/filiais
+    [HttpPost]
+    [ProducesResponseType(typeof(Filial), 201)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> Create([FromBody] Filial model)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-        /// <summary>Exclui filial</summary>
-        [HttpDelete("{id:int}")]
-        [ProducesResponseType(204)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var entity = await _db.Filiais.FindAsync(id);
-            if (entity is null) return NotFound();
-            _db.Filiais.Remove(entity);
-            await _db.SaveChangesAsync();
-            return NoContent();
-        }
+        _db.Filiais.Add(model);
+        await _db.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetById), new { id = model.Id, version = "1" }, model);
+    }
+
+    // PUT /api/v1/filiais/{id}
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> Update(int id, [FromBody] Filial input)
+    {
+        var entity = await _db.Filiais.FirstOrDefaultAsync(f => f.Id == id);
+        if (entity is null) return NotFound();
+
+        entity.Nome = input.Nome;
+        entity.Endereco = input.Endereco;
+
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    // DELETE /api/v1/filiais/{id}
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var entity = await _db.Filiais.FirstOrDefaultAsync(f => f.Id == id);
+        if (entity is null) return NotFound();
+
+        _db.Filiais.Remove(entity);
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }
